@@ -167,6 +167,7 @@ public class SimpleWebBrowser extends JFrame {
     private void loadURL(String url) {
         try {
             editorPane.setPage(new URL(url));
+            urlField.setText(url);
             if (historyIndex == -1 || !history.get(historyIndex).toString().equals(url)) {
                 history.add(new URL(url));
                 historyIndex++;
