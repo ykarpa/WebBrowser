@@ -6,8 +6,6 @@ import javax.swing.event.HyperlinkListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.*;
 import java.net.URL;
 import java.util.ArrayList;
@@ -47,6 +45,7 @@ public class SimpleWebBrowser extends JFrame {
                 savePage();
             }
         });
+
         fileMenu.add(saveMenuItem);
         menuBar.add(fileMenu);
 
@@ -110,6 +109,15 @@ public class SimpleWebBrowser extends JFrame {
         });
         toolBar.add(goButton);
 
+        JButton settingsButton = new JButton("Settings");
+        settingsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                openSettingsDialog();
+            }
+        });
+        toolBar.add(settingsButton);
+
         add(toolBar, BorderLayout.NORTH);
     }
 
@@ -131,8 +139,13 @@ public class SimpleWebBrowser extends JFrame {
     }
 
     private void createStatusBar() {
-        JLabel statusBar = new JLabel("Ready");
+        JLabel statusBar = new JLabel();
         add(statusBar, BorderLayout.SOUTH);
+    }
+
+    private void openSettingsDialog() {
+        SettingsDialog settingsDialog = new SettingsDialog(this);
+        settingsDialog.setVisible(true);
     }
 
     private void savePage() {
@@ -167,6 +180,7 @@ public class SimpleWebBrowser extends JFrame {
     private void loadURL(String url) {
         try {
             editorPane.setPage(new URL(url));
+            urlField.setText(url);
             if (historyIndex == -1 || !history.get(historyIndex).toString().equals(url)) {
                 history.add(new URL(url));
                 historyIndex++;
@@ -177,7 +191,7 @@ public class SimpleWebBrowser extends JFrame {
     }
 
     private void addBookmark() {
-        String inputURL = JOptionPane.showInputDialog(this, "Enter URL for the bookmark:");
+        String inputURL = JOptionPane.showInputDialog(this, "Enter URL for the bookmark:", "Bookmark URL Input", JOptionPane.PLAIN_MESSAGE);
         if (inputURL != null && !inputURL.isEmpty()) {
             try {
                 if (!inputURL.startsWith("http://") && !inputURL.startsWith("https://")) {
@@ -185,29 +199,186 @@ public class SimpleWebBrowser extends JFrame {
                 }
 
                 String url = inputURL;
-                URL bookmarkURL = new URL(url);
-                JMenuItem bookmarkItem = new JMenuItem(url);
-                bookmarkItem.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        loadURL(url);
-                    }
-                });
-                bookmarksMenu.add(bookmarkItem);
-                JOptionPane.showMessageDialog(this, "Bookmark added successfully", "Add Bookmark", JOptionPane.INFORMATION_MESSAGE);
+
+                // Check if the bookmark already exists
+                if (!bookmarkExists(url)) {
+                    JMenuItem bookmarkItem = new JMenuItem(url);
+                    bookmarkItem.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            loadURL(url);
+                        }
+                    });
+                    bookmarksMenu.add(bookmarkItem);
+
+                    // Save bookmarks to file after adding a new bookmark
+                    saveBookmarksToFile();
+
+                    JOptionPane.showMessageDialog(this, "Bookmark added successfully", "Add Bookmark", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Bookmark already exists", "Add Bookmark", JOptionPane.WARNING_MESSAGE);
+                }
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Invalid URL", "Add Bookmark", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                new SimpleWebBrowser();
+    private boolean bookmarkExists(String url) {
+        for (int i = 0; i < bookmarksMenu.getItemCount(); i++) {
+            JMenuItem item = bookmarksMenu.getItem(i);
+            if (item != null) {
+                String existingBookmark = item.getText().trim();
+                if (existingBookmark.equals(url)) {
+                    return true;
+                }
             }
-        });
+        }
+        return false;
+    }
+
+
+    private void saveBookmarksToFile() {
+        try (BufferedReader reader = new BufferedReader(new FileReader("bookmarks.txt"));
+             PrintWriter writer = new PrintWriter(new FileWriter("bookmarks.txt", true))) {
+
+            // Read existing bookmarks from the file
+            List<String> existingBookmarks = new ArrayList<>();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                existingBookmarks.add(line.trim());
+            }
+
+            // Check if the new bookmark already exists
+            for (int i = 0; i < bookmarksMenu.getItemCount(); i++) {
+                JMenuItem item = bookmarksMenu.getItem(i);
+                if (item != null) {
+                    String newBookmark = item.getText().trim();
+                    if (!existingBookmarks.contains(newBookmark)) {
+                        writer.println(newBookmark);
+                    }
+                }
+            }
+
+            //JOptionPane.showMessageDialog(this, "Bookmarks saved successfully", "Save Bookmarks", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Error saving bookmarks", "Save Bookmarks", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public void loadBookmarksFromFile() {
+        try (BufferedReader reader = new BufferedReader(new FileReader("bookmarks.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.equals("Add Bookmark")) {
+                    String url = line.trim();
+                    addBookmarkFromFile(url);
+                }
+            }
+        } catch (IOException e) {
+            // Ignore if the file doesn't exist or there is an error reading it
+        }
+    }
+
+    private void addBookmarkFromFile(String url) {
+        try {
+            String finalURL = url;
+            JButton bookmarkButton = new JButton(finalURL);
+            bookmarkButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    loadURL(finalURL);
+                }
+            });
+            bookmarkButton.setToolTipText(finalURL);
+
+            ImageIcon trashIcon = new ImageIcon("img/trash_icon.png");
+            trashIcon.setImage(trashIcon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH));
+
+            JButton removeButton = new JButton(trashIcon);
+            removeButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    removeBookmark(finalURL);
+                }
+            });
+
+            JPanel bookmarkPanel = new JPanel(new BorderLayout());
+            bookmarkPanel.add(bookmarkButton, BorderLayout.CENTER);
+            bookmarkPanel.add(removeButton, BorderLayout.EAST);
+
+            bookmarksMenu.add(bookmarkPanel);
+        } catch (Exception e) {
+            // Ignore if the URL is invalid
+        }
+    }
+
+    private void removeBookmark(String url) {
+        Component[] components = bookmarksMenu.getMenuComponents();
+
+        for (Component component : components) {
+            if (component instanceof JPanel) {
+                JPanel bookmarkPanel = (JPanel) component;
+                JButton bookmarkButton = (JButton) bookmarkPanel.getComponent(0);
+
+                if (bookmarkButton != null && bookmarkButton.getText().equals(url)) {
+                    bookmarksMenu.remove(bookmarkPanel);
+                    saveBookmarksToFile(); // Save bookmarks after removal
+                    bookmarksMenu.revalidate();
+                    bookmarksMenu.repaint();
+
+                    // Remove the bookmark from the file
+                    removeBookmarkFromFile(url);
+
+                    return;
+                }
+            }
+        }
+    }
+
+    private void removeBookmarkFromFile(String url) {
+        try (BufferedReader reader = new BufferedReader(new FileReader("bookmarks.txt"));
+             PrintWriter writer = new PrintWriter(new FileWriter("bookmarks_temp.txt"))) {
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmedLine = line.trim();
+                if (!trimmedLine.equals(url)) {
+                    writer.println(trimmedLine);
+                }
+            }
+
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Error removing bookmark from file", "Remove Bookmark", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Rename the temporary file to the original file
+        File tempFile = new File("bookmarks_temp.txt");
+        File originalFile = new File("bookmarks.txt");
+
+        if (originalFile.delete()) {
+            if (!tempFile.renameTo(originalFile)) {
+                JOptionPane.showMessageDialog(this, "Error renaming temporary file", "Remove Bookmark", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Error deleting original file", "Remove Bookmark", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public void setTheme(String theme) {
+        if (theme.equals("light")) {
+            // Light Theme
+            getContentPane().setBackground(Color.WHITE);
+            editorPane.setBackground(Color.WHITE);
+            urlField.setBackground(Color.WHITE);
+            urlField.setForeground(Color.BLACK);
+        } else if (theme.equals("dark")) {
+            // Dark Theme
+            getContentPane().setBackground(Color.DARK_GRAY);
+            editorPane.setBackground(Color.DARK_GRAY);
+            urlField.setBackground(Color.DARK_GRAY);
+            urlField.setForeground(Color.WHITE);
+        }
     }
 }
