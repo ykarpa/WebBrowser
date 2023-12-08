@@ -6,8 +6,6 @@ import javax.swing.event.HyperlinkListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.*;
 import java.net.URL;
 import java.util.ArrayList;
@@ -47,6 +45,7 @@ public class SimpleWebBrowser extends JFrame {
                 savePage();
             }
         });
+
         fileMenu.add(saveMenuItem);
         menuBar.add(fileMenu);
 
@@ -110,6 +109,15 @@ public class SimpleWebBrowser extends JFrame {
         });
         toolBar.add(goButton);
 
+        JButton settingsButton = new JButton("Settings");
+        settingsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                openSettingsDialog();
+            }
+        });
+        toolBar.add(settingsButton);
+
         add(toolBar, BorderLayout.NORTH);
     }
 
@@ -131,8 +139,13 @@ public class SimpleWebBrowser extends JFrame {
     }
 
     private void createStatusBar() {
-        JLabel statusBar = new JLabel("Ready");
+        JLabel statusBar = new JLabel();
         add(statusBar, BorderLayout.SOUTH);
+    }
+
+    private void openSettingsDialog() {
+        SettingsDialog settingsDialog = new SettingsDialog(this);
+        settingsDialog.setVisible(true);
     }
 
     private void savePage() {
@@ -189,7 +202,6 @@ public class SimpleWebBrowser extends JFrame {
 
                 // Check if the bookmark already exists
                 if (!bookmarkExists(url)) {
-                    URL bookmarkURL = new URL(url);
                     JMenuItem bookmarkItem = new JMenuItem(url);
                     bookmarkItem.addActionListener(new ActionListener() {
                         @Override
@@ -254,12 +266,14 @@ public class SimpleWebBrowser extends JFrame {
         }
     }
 
-    private void loadBookmarksFromFile() {
+    public void loadBookmarksFromFile() {
         try (BufferedReader reader = new BufferedReader(new FileReader("bookmarks.txt"))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String url = line.trim();
-                addBookmarkFromFile(url);
+                if (!line.equals("Add Bookmark")) {
+                    String url = line.trim();
+                    addBookmarkFromFile(url);
+                }
             }
         } catch (IOException e) {
             // Ignore if the file doesn't exist or there is an error reading it
@@ -269,7 +283,6 @@ public class SimpleWebBrowser extends JFrame {
     private void addBookmarkFromFile(String url) {
         try {
             String finalURL = url;
-            URL bookmarkURL = new URL(finalURL);
             JButton bookmarkButton = new JButton(finalURL);
             bookmarkButton.addActionListener(new ActionListener() {
                 @Override
@@ -279,7 +292,6 @@ public class SimpleWebBrowser extends JFrame {
             });
             bookmarkButton.setToolTipText(finalURL);
 
-// Replace "img/trash_icon.png" with the actual path to your icon
             ImageIcon trashIcon = new ImageIcon("img/trash_icon.png");
             trashIcon.setImage(trashIcon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH));
 
@@ -354,15 +366,19 @@ public class SimpleWebBrowser extends JFrame {
         }
     }
 
-
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                SimpleWebBrowser browser = new SimpleWebBrowser();
-                browser.loadBookmarksFromFile(); // Load bookmarks when the program starts
-            }
-        });
+    public void setTheme(String theme) {
+        if (theme.equals("light")) {
+            // Light Theme
+            getContentPane().setBackground(Color.WHITE);
+            editorPane.setBackground(Color.WHITE);
+            urlField.setBackground(Color.WHITE);
+            urlField.setForeground(Color.BLACK);
+        } else if (theme.equals("dark")) {
+            // Dark Theme
+            getContentPane().setBackground(Color.DARK_GRAY);
+            editorPane.setBackground(Color.DARK_GRAY);
+            urlField.setBackground(Color.DARK_GRAY);
+            urlField.setForeground(Color.WHITE);
+        }
     }
 }

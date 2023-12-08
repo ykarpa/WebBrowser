@@ -1,3 +1,2 @@
-Add Bookmark
 https://google.com
 https://github.com
